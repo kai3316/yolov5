@@ -115,7 +115,7 @@ def create_dataloader(path,
             path,
             imgsz,
             batch_size,
-            augment=augment,  # augmentation
+            augment=False,  # augmentation
             hyp=hyp,  # hyperparameters
             rect=rect,  # rectangular batches
             cache_images=cache,
@@ -586,7 +586,7 @@ class LoadImagesAndLabels(Dataset):
             # Load mosaic
             img, labels = self.load_mosaic(index)
             shapes = None
-
+            print("**********mosaic**********")
             # MixUp augmentation
             if random.random() < hyp['mixup']:
                 img, labels = mixup(img, labels, *self.load_mosaic(random.randint(0, self.n - 1)))
@@ -594,17 +594,28 @@ class LoadImagesAndLabels(Dataset):
         else:
             # Load image
             img, (h0, w0), (h, w) = self.load_image(index)
+            # print(img.shape)
+            # print(h,w)
+            # print(h0,w0)
 
             # Letterbox
-            shape = self.batch_shapes[self.batch[index]] if self.rect else self.img_size  # final letterboxed shape
-            img, ratio, pad = letterbox(img, shape, auto=False, scaleup=self.augment)
-            shapes = (h0, w0), ((h / h0, w / w0), pad)  # for COCO mAP rescaling
-
+            # print("**********letterbox**********")
+            # shape = self.batch_shapes[self.batch[index]] if self.rect else self.img_size  # final letterboxed shape
+            # print(shape)
+            # img, ratio, pad = letterbox(img, shape, auto=False, scaleup=self.augment)
+            # shapes = (h0, w0), ((h / h0, w / w0), pad)  # for COCO mAP rescaling
+            shapes = ((480, 848), ((1.3333333333333333, 0.7547169811320755), (0.0, 0.0)))
+            # print(shapes)
+            # print(ratio, pad)
+            # print(w,h)
             labels = self.labels[index].copy()
             if labels.size:  # normalized xywh to pixel xyxy format
-                labels[:, 1:] = xywhn2xyxy(labels[:, 1:], ratio[0] * w, ratio[1] * h, padw=pad[0], padh=pad[1])
+                # print("**********labels**********")
+                # labels[:, 1:] = xywhn2xyxy(labels[:, 1:], ratio[0] * w, ratio[1] * h, padw=pad[0], padh=pad[1])
+                labels[:, 1:] = xywhn2xyxy(labels[:, 1:],  w,  h, padw=0, padh=0)
 
             if self.augment:
+                print("**********augment**********")
                 img, labels = random_perspective(img,
                                                  labels,
                                                  degrees=hyp['degrees'],
@@ -615,10 +626,12 @@ class LoadImagesAndLabels(Dataset):
 
         nl = len(labels)  # number of labels
         if nl:
+            # print("**********labels**********")
             labels[:, 1:5] = xyxy2xywhn(labels[:, 1:5], w=img.shape[1], h=img.shape[0], clip=True, eps=1E-3)
 
         if self.augment:
             # Albumentations
+            print("**********albumentations**********")
             img, labels = self.albumentations(img, labels)
             nl = len(labels)  # update after albumentations
 
@@ -664,7 +677,8 @@ class LoadImagesAndLabels(Dataset):
             r = self.img_size / max(h0, w0)  # ratio
             if r != 1:  # if sizes are not equal
                 interp = cv2.INTER_LINEAR if (self.augment or r > 1) else cv2.INTER_AREA
-                im = cv2.resize(im, (int(w0 * r), int(h0 * r)), interpolation=interp)
+                # im = cv2.resize(im, (int(w0 * r), int(h0 * r)), interpolation=interp)
+                im = cv2.resize(im, (self.img_size, self.img_size), interpolation=interp)
             return im, (h0, w0), im.shape[:2]  # im, hw_original, hw_resized
         else:
             return self.ims[i], self.im_hw0[i], self.im_hw[i]  # im, hw_original, hw_resized
@@ -676,6 +690,7 @@ class LoadImagesAndLabels(Dataset):
             np.save(f.as_posix(), cv2.imread(self.im_files[i]))
 
     def load_mosaic(self, index):
+        print("**********load_mosaic**********")
         # YOLOv5 4-mosaic loader. Loads 1 image + 3 random images into a 4-image mosaic
         labels4, segments4 = [], []
         s = self.img_size
@@ -734,6 +749,7 @@ class LoadImagesAndLabels(Dataset):
         return img4, labels4
 
     def load_mosaic9(self, index):
+        print("**********load_mosaic9**********")
         # YOLOv5 9-mosaic loader. Loads 1 image + 8 random images into a 9-image mosaic
         labels9, segments9 = [], []
         s = self.img_size
